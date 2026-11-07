@@ -9,26 +9,26 @@ from sklearn.metrics import mean_squared_error, accuracy_score
 from sklearn.preprocessing import MinMaxScaler
 
 
-def normalize_data(df):
+def normalizeData(df):
     # Extract columns to normalize (all except the last three)
-    columns_to_normalize = df.columns[:-3]
+    columnsToNormalize = df.columns[:-3]
 
     # Initialize scaler to transform values into the range [0, 1]
     scaler = MinMaxScaler()
 
     # Apply normalization only to selected columns
-    df[columns_to_normalize] = scaler.fit_transform(df[columns_to_normalize])
+    df[columnsToNormalize] = scaler.fit_transform(df[columnsToNormalize])
 
     return df
 
 
-def hyperparameterization(input_path, output_path, map_path):
+def hyperparameterization(inputPath, outputPath, mapPath):
     # Load data
-    df = pd.read_csv(input_path)
-    x_col, y_col = df.columns[-2], df.columns[-1]
+    df = pd.read_csv(inputPath)
+    xCol, yCol = df.columns[-2], df.columns[-1]
 
     # Function to determine the zone based on coordinates
-    def determine_zone(x, y):
+    def determineZone(x, y):
         if 0 <= x <= 156 and 0 <= y <= 88: return 1
         if 30 <= x <= 125 and 88 < y <= 198: return 2
         if 30 <= x <= 125 and 198 < y <= 333: return 3
@@ -61,11 +61,11 @@ def hyperparameterization(input_path, output_path, map_path):
         return 0
 
     # Add new zone column
-    df['zone'] = [determine_zone(x, y) for x, y in zip(df[x_col], df[y_col])]
-    df.to_csv(output_path, index=False)
+    df['zone'] = [determineZone(x, y) for x, y in zip(df[xCol], df[yCol])]
+    df.to_csv(outputPath, index=False)
 
     # Geometric data for drawing zone rectangles on the map
-    zone_coordinates = {
+    zoneCoordinates = {
         1: [0, 0, 156, 88], 2: [30, 88, 95, 110], 3: [30, 198, 95, 135],
         4: [30, 333, 95, 179], 5: [0, 512, 200, 143], 6: [125, 88, 37, 424],
         7: [162, 41, 255, 87], 8: [417, 41, 291, 87], 9: [708, 41, 301, 87],
@@ -79,17 +79,17 @@ def hyperparameterization(input_path, output_path, map_path):
     }
 
     fig, ax = plt.subplots(figsize=(15, 10))
-    color_list = list(plt.cm.tab20b.colors + plt.cm.tab20c.colors)
+    colorList = list(plt.cm.tab20b.colors + plt.cm.tab20c.colors)
 
-    img = mpimg.imread(map_path)
+    img = mpimg.imread(mapPath)
     ax.imshow(img, extent=[0, img.shape[1], img.shape[0], 0], alpha=0.6, origin='upper')
 
-    for z_id, coord in zone_coordinates.items():
+    for zId, coord in zoneCoordinates.items():
         rect = patches.Rectangle((coord[0], coord[1]), coord[2], coord[3],
                                  linewidth=1.5, edgecolor='black',
-                                 facecolor=color_list[z_id], alpha=0.4)
+                                 facecolor=colorList[zId], alpha=0.4)
         ax.add_patch(rect)
-        ax.text(coord[0] + coord[2] / 2, coord[1] + coord[3] / 2, str(z_id),
+        ax.text(coord[0] + coord[2] / 2, coord[1] + coord[3] / 2, str(zId),
                 color='black', fontweight='bold', ha='center', va='center',
                 fontsize=9, bbox=dict(facecolor='white', alpha=0.5, lw=0))
 
@@ -98,128 +98,125 @@ def hyperparameterization(input_path, output_path, map_path):
     plt.show()
 
 
-def cross_validation(file_path, output_folder='crossValidation'):
+def crossValidation(filePath, outputFolder='crossValidation'):
     # Split data into 5 independent folds to check model stability
-    data = pd.read_csv(file_path)
-    os.makedirs(output_folder, exist_ok=True)
+    data = pd.read_csv(filePath)
+    os.makedirs(outputFolder, exist_ok=True)
 
-    total_samples = len(data)
-    test_size = total_samples // 5
-    shuffled_data = data.sample(frac=1, random_state=42).reset_index(drop=True)
+    totalSamples = len(data)
+    testSize = totalSamples // 5
+    shuffledData = data.sample(frac=1, random_state=42).reset_index(drop=True)
 
     for fold in range(5):
-        set_path = os.path.join(output_folder, f'set{fold + 1}')
-        os.makedirs(set_path, exist_ok=True)
+        setPath = os.path.join(outputFolder, f'set{fold + 1}')
+        os.makedirs(setPath, exist_ok=True)
 
-        test_indices = list(range(fold * test_size, (fold + 1) * test_size))
-        train_indices = [i for i in range(total_samples) if i not in test_indices]
+        testIndices = list(range(fold * testSize, (fold + 1) * testSize))
+        trainIndices = [i for i in range(totalSamples) if i not in testIndices]
 
-        shuffled_data.iloc[test_indices].to_csv(os.path.join(set_path, f'testFold{fold + 1}.csv'), index=False)
-        shuffled_data.iloc[train_indices].to_csv(os.path.join(set_path, f'trainFold{fold + 1}.csv'), index=False)
+        shuffledData.iloc[testIndices].to_csv(os.path.join(setPath, f'testFold{fold + 1}.csv'), index=False)
+        shuffledData.iloc[trainIndices].to_csv(os.path.join(setPath, f'trainFold{fold + 1}.csv'), index=False)
 
 
 # Function to plot actual and predicted points on the map with error lines
-def plot_results_on_map(map_path, y_actual, y_predicted, set_name):
-    img = mpimg.imread(map_path)
+def plotResultsOnMap(mapPath, yActual, yPredicted, setName):
+    img = mpimg.imread(mapPath)
     fig, ax = plt.subplots(figsize=(12, 8))
     ax.imshow(img, extent=[0, img.shape[1], img.shape[0], 0], alpha=0.7)
 
-    ax.scatter(y_actual[:, 0], y_actual[:, 1], c='green', label='Actual', s=15, alpha=0.6)
-    ax.scatter(y_predicted[:, 0], y_predicted[:, 1], c='red', label='Predicted', s=15, alpha=0.6)
-
+    ax.scatter(yActual[:, 0], yActual[:, 1], c='green', label='Actual', s=15, alpha=0.6)
+    ax.scatter(yPredicted[:, 0], yPredicted[:, 1], c='red', label='Predicted', s=15, alpha=0.6)
+    
     # Draw lines between predictions and actual points
-    for i in range(len(y_actual)):
-        ax.plot([y_actual[i, 0], y_predicted[i, 0]],
-                [y_actual[i, 1], y_predicted[i, 1]],
+    for i in range(len(yActual)):
+        ax.plot([yActual[i, 0], yPredicted[i, 0]],
+                [yActual[i, 1], yPredicted[i, 1]],
                 color='red', linestyle='-', linewidth=0.7, alpha=0.4)
 
-    plt.title(f"kNN Regression Results - {set_name}")
+    plt.title(f"kNN Regression Results - {setName}")
     plt.legend()
     plt.show()
 
 
-def knn_localization(main_folder, set_name, train_path, test_path, map_path):
-    folder_set = os.path.join(main_folder, set_name)
-    folder_graphics = os.path.join(folder_set, "k_dependency_plots")
-    os.makedirs(folder_graphics, exist_ok=True)
+def runKNN(mainFolder, setName, trainPath, testPath, mapPath):
+    folderSet = os.path.join(mainFolder, setName)
+    folderGraphics = os.path.join(folderSet, "k_dependency_plots")
+    os.makedirs(folderGraphics, exist_ok=True)
 
-    df_train, df_test = pd.read_csv(train_path), pd.read_csv(test_path)
-    rssi_columns = [i for i in df_train.columns if 'RSSI' in i]
-    x_col, y_col, zone_col = 'X Coordinate [0.1m]', 'Y Coordinate [0.1m]', 'zone'
+    dfTrain, dfTest = pd.read_csv(trainPath), pd.read_csv(testPath)
+    rssiColumns = [i for i in dfTrain.columns if 'RSSI' in i]
+    xCol, yCol, zoneCol = 'X Coordinate [0.1m]', 'Y Coordinate [0.1m]', 'zone'
 
-    image = mpimg.imread(map_path)
-    img_height, img_width = image.shape[:2]
+    image = mpimg.imread(mapPath)
+    imgHeight, imgWidth = image.shape[:2]
 
-    def scale_coord(p, max_v, p_min, p_max):
-        return (p - p_min) / (p_max - p_min) * max_v
+    def scaleCoord(p, maxV, pMin, pMax):
+        return (p - pMin) / (pMax - pMin) * maxV
 
-    x_min, x_max = df_train[x_col].min(), df_train[x_col].max()
-    y_min, y_max = df_train[y_col].min(), df_train[y_col].max()
+    xMin, xMax = dfTrain[xCol].min(), dfTrain[xCol].max()
+    yMin, yMax = dfTrain[yCol].min(), dfTrain[yCol].max()
 
-    train_img = np.column_stack([scale_coord(df_train[x_col].values, img_width, x_min, x_max),
-                                 scale_coord(df_train[y_col].values, img_height, y_min, y_max)])
-    test_img = np.column_stack([scale_coord(df_test[x_col].values, img_width, x_min, x_max),
-                                scale_coord(df_test[y_col].values, img_height, y_min, y_max)])
+    trainImg = np.column_stack([scaleCoord(dfTrain[xCol].values, imgWidth, xMin, xMax),
+                                scaleCoord(dfTrain[yCol].values, imgHeight, yMin, yMax)])
+    testImg = np.column_stack([scaleCoord(dfTest[xCol].values, imgWidth, xMin, xMax),
+                               scaleCoord(dfTest[yCol].values, imgHeight, yMin, yMax)])
 
-    zone_models = {}
-    best_k_per_zone = {}
+    zoneModels = {}
+    bestKPerZone = {}
 
-    for z in np.unique(df_train[zone_col]):
-        mask_tr, mask_te = df_train[zone_col] == z, df_test[zone_col] == z
-        if not np.any(mask_te) or not np.any(mask_tr): continue
+    for z in np.unique(dfTrain[zoneCol]):
+        maskTr, maskTe = dfTrain[zoneCol] == z, dfTest[zoneCol] == z
+        if not np.any(maskTe) or not np.any(maskTr): continue
 
-        x_tr, y_tr = df_train[rssi_columns].values[mask_tr], train_img[mask_tr]
-        x_te, y_te = df_test[rssi_columns].values[mask_te], test_img[mask_te]
+        xTr, yTr = dfTrain[rssiColumns].values[maskTr], trainImg[maskTr]
+        xTe, yTe = dfTest[rssiColumns].values[maskTe], testImg[maskTe]
 
-        k_values = range(1, min(len(x_tr), 16))
-        rmse_for_k = []
+        kValues = range(1, min(len(xTr), 16))
+        rmseForK = []
 
-        for k in k_values:
-            knn = KNeighborsRegressor(n_neighbors=k).fit(x_tr, y_tr)
-            rmse_for_k.append(np.sqrt(mean_squared_error(y_te, knn.predict(x_te))))
+        for k in kValues:
+            knn = KNeighborsRegressor(n_neighbors=k).fit(xTr, yTr)
+            rmseForK.append(np.sqrt(mean_squared_error(yTe, knn.predict(xTe))))
 
-        best_k = k_values[np.argmin(rmse_for_k)]
-        best_k_per_zone[z] = best_k
-        zone_models[z] = KNeighborsRegressor(n_neighbors=best_k).fit(x_tr, y_tr)
+        bestK = kValues[np.argmin(rmseForK)]
+        bestKPerZone[z] = bestK
+        zoneModels[z] = KNeighborsRegressor(n_neighbors=bestK).fit(xTr, yTr)
 
         plt.figure(figsize=(6, 4))
-        plt.plot(k_values, rmse_for_k, 'b-o')
-        plt.axvline(best_k, color='r', linestyle='--')
-        plt.title(f"Zone {z} Best k={best_k}")
-        plt.savefig(os.path.join(folder_graphics, f'zone_{z}_k.png'))
+        plt.plot(kValues, rmseForK, 'b-o')
+        plt.axvline(bestK, color='r', linestyle='--')
+        plt.title(f"Zone {z} Best k={bestK}")
+        plt.savefig(os.path.join(folderGraphics, f'zone_{z}_k.png'))
         plt.close()
 
-    k_range_cls = range(1, min(21, len(df_train)))
-    accuracy_list = [accuracy_score(df_test[zone_col], KNeighborsClassifier(n_neighbors=k).fit(df_train[rssi_columns],
-                                                                                               df_train[
-                                                                                                   zone_col]).predict(
-        df_test[rssi_columns])) for k in k_range_cls]
+    kRangeCls = range(1, min(21, len(dfTrain)))
+    accuracyList = [accuracy_score(dfTest[zoneCol], KNeighborsClassifier(n_neighbors=k).fit(dfTrain[rssiColumns], dfTrain[zoneCol]).predict(dfTest[rssiColumns])) for k in kRangeCls]
 
-    best_k_cls = list(k_range_cls)[np.argmax(accuracy_list)]
+    bestKCls = list(kRangeCls)[np.argmax(accuracyList)]
 
-    model_cls = KNeighborsClassifier(n_neighbors=best_k_cls).fit(df_train[rssi_columns], df_train[zone_col])
-    zone_pred = model_cls.predict(df_test[rssi_columns])
+    modelCls = KNeighborsClassifier(n_neighbors=bestKCls).fit(dfTrain[rssiColumns], dfTrain[zoneCol])
+    zonePred = modelCls.predict(dfTest[rssiColumns])
+    
+    individualErrors = []
+    predictedCoordinates = []
+    
+    for i in range(len(testImg)):
+        z = zonePred[i]
+        prediction = zoneModels[z].predict([dfTest[rssiColumns].values[i]])[0] if z in zoneModels else \
+            KNeighborsRegressor(n_neighbors=3).fit(dfTrain[rssiColumns], trainImg).predict(
+                [dfTest[rssiColumns].values[i]])[0]
+        predictedCoordinates.append(prediction)
+        individualErrors.append(np.linalg.norm(prediction - testImg[i]))
 
-    individual_errors = []
-    predicted_coordinates = []
+    predictedCoordinates = np.array(predictedCoordinates)
+    plotResultsOnMap(mapPath, testImg, predictedCoordinates, setName)
 
-    for i in range(len(test_img)):
-        z = zone_pred[i]
-        prediction = zone_models[z].predict([df_test[rssi_columns].values[i]])[0] if z in zone_models else \
-            KNeighborsRegressor(n_neighbors=3).fit(df_train[rssi_columns], train_img).predict(
-                [df_test[rssi_columns].values[i]])[0]
-        predicted_coordinates.append(prediction)
-        individual_errors.append(np.linalg.norm(prediction - test_img[i]))
-
-    predicted_coordinates = np.array(predicted_coordinates)
-    plot_results_on_map(map_path, test_img, predicted_coordinates, set_name)
-
-    error_array = np.array(individual_errors)
-    with open(os.path.join(folder_set, f"results_{set_name}.txt"), "w") as f:
+    errorArray = np.array(individualErrors)
+    with open(os.path.join(folderSet, f"results_{setName}.txt"), "w") as f:
         f.write(
-            f"STATISTICS FOR {set_name}\nMean: {np.mean(error_array):.2f}\nMedian: {np.median(error_array):.2f}\nStd: {np.std(error_array):.2f}\nVar: {np.var(error_array):.2f}")
+            f"STATISTICS FOR {setName}\nMean: {np.mean(errorArray):.2f}\nMedian: {np.median(errorArray):.2f}\nStd: {np.std(errorArray):.2f}\nVar: {np.var(errorArray):.2f}")
 
-    return individual_errors
+    return individualErrors
 
 
 if __name__ == '__main__':
@@ -228,34 +225,34 @@ if __name__ == '__main__':
 
     dataset.to_csv("originalII.csv", index=False)
 
-    map_path = r"Layout.gif"
-    main_folder = "Orig29"
+    mapPath = r"Layout.gif"
+    mainFolder = "Orig29"
+    
+    hyperparameterization('originalII.csv', 'hyperpar.csv', mapPath)
+    crossValidation("hyperpar.csv", mainFolder)
 
-    hyperparameterization('originalII.csv', 'hyperpar.csv', map_path)
-    cross_validation("hyperpar.csv", main_folder)
-
-    total_errors = []
+    totalErrors = []
     for i in range(1, 6):
-        set_name = f'set{i}'
+        setName = f'set{i}'
 
-        train_path = os.path.join(main_folder, set_name, f'trainFold{i}.csv')
-        test_path = os.path.join(main_folder, set_name, f'testFold{i}.csv')
+        trainPath = os.path.join(mainFolder, setName, f'trainFold{i}.csv')
+        testPath = os.path.join(mainFolder, setName, f'testFold{i}.csv')
 
-        set_errors = knn_localization(main_folder, set_name, train_path, test_path, map_path)
-        total_errors.extend(set_errors)
+        setErrors = runKNN(mainFolder, setName, trainPath, testPath, mapPath)
+        totalErrors.extend(setErrors)
 
-    total_errors = np.array(total_errors)
-    global_mean = np.mean(total_errors)
-    global_std = np.std(total_errors)
+    totalErrors = np.array(totalErrors)
+    globalMean = np.mean(totalErrors)
+    globalStd = np.std(totalErrors)
 
     print(f"RESULTS:")
-    print(f"Mean: {global_mean:.2f}")
-    print(f"Median: {np.median(total_errors):.2f}")
-    print(f"Std: {global_std:.2f}")
+    print(f"Mean: {globalMean:.2f}")
+    print(f"Median: {np.median(totalErrors):.2f}")
+    print(f"Std: {globalStd:.2f}")
 
-    plt.hist(total_errors, bins=40, color='skyblue', edgecolor='black')
-    plt.title(f"Global Error Distribution (Mean: {global_mean:.2f}, Std: {global_std:.2f})")
+    plt.hist(totalErrors, bins=40, color='skyblue', edgecolor='black')
+    plt.title(f"Global Error Distribution (Mean: {globalMean:.2f}, Std: {globalStd:.2f})")
     plt.xlabel("Error [0.1m]")
     plt.ylabel("Sample Count")
-    plt.savefig(os.path.join(main_folder, 'global_statistics.png'))
+    plt.savefig(os.path.join(mainFolder, 'global_statistics.png'))
     plt.show()
